@@ -1,19 +1,31 @@
-"use client"
+"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { auth } from "@/app/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
 
 export default function ForgotPasswordPage() {
   const router = useRouter(); // Hook para la navegación
   const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setEmail(e.target.value);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Aquí podrías realizar validaciones y enviar la solicitud de restablecimiento de contraseña
-    console.log("Correo enviado para restablecer contraseña:", email);
+    setMessage("");
+    setError("");
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setMessage("Correo de recuperación enviado. Revisa tu bandeja de entrada.");
+    } catch (error) {
+      console.error("Error al enviar el correo de recuperación:", error);
+      setError("Hubo un error al intentar enviar el correo de recuperación. Verifica el correo e intenta de nuevo.");
+    }
   };
 
   const handleLoginRedirect = () => {
@@ -58,6 +70,10 @@ export default function ForgotPasswordPage() {
             </button>
           </div>
         </form>
+
+        {/* Mensaje de éxito o error */}
+        {message && <p className="text-green-600 mt-4">{message}</p>}
+        {error && <p className="text-red-600 mt-4">{error}</p>}
 
         {/* Botón de Volver al Login */}
         <div className="mt-4">

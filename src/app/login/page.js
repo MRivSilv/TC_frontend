@@ -1,68 +1,68 @@
 "use client"
-import { useRouter } from "next/navigation";
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { auth } from '../firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+
+import '../styles/LoginPage.css'
 
 export default function LoginPage() {
-  const router = useRouter(); // Hook de enrutamiento
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const router = useRouter();
 
-  const handleRegisterRedirect = () => {
-    router.push("/register"); // Redirige a la página de registro
-  };
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
 
-  const handleForgotRedirect = () => {
-    router.push("/login/forgot-password");
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/'); // Redirige a la página principal o a donde desees después del login
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error.message);
+      setError(error.message);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
-      {/* Contenedor del formulario */}
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-        {/* Imagen */}
-        <div className="flex justify-center mb-4">
-          <div className="h-24 w-24 bg-gray-200 rounded-lg flex items-center justify-center">
-            <span className="text-gray-500">Logo</span>
-          </div>
-        </div>
-        {/* Formulario */}
-        <form className="space-y-4">
-          <div>
+    <div className="container">
+    <div className="card">
+        <h1 className="title">Iniciar Sesión</h1>
+        <form onSubmit={handleLogin}>
             <input
-              type="text"
-              placeholder="Usuario"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                type="email"
+                placeholder="Correo Electrónico"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input"
             />
-          </div>
-          <div>
             <input
-              type="password"
-              placeholder="Contraseña"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                type="password"
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="input"
+                autoComplete="current-password"
             />
-          </div>
-          <div>
-            <button
-              type="submit"
-              className="w-full bg-black text-white py-2 rounded-md hover:bg-gray-900 transition duration-300"
-            >
-              Iniciar Sesion
+            <button type="submit" className="button">
+                Iniciar Sesión
             </button>
-          </div>
-          <div>
-            <button
-              type="button"
-              className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition duration-300"
-              onClick={handleRegisterRedirect}  // Llama a la función para redirigir
-            >
-              Registrarse
-            </button>
-          </div>
-          <div className="text-center">
-            <a href="#" className="text-gray-500 hover:underline" onClick={handleForgotRedirect}>
-              ¿Olvidaste tu contraseña?
-            </a>
-          </div>
         </form>
-      </div>
+        {error && <p className="error">{error}</p>}
+        <a onClick={() => router.push("/register")} className="link">
+            ¿No tienes cuenta? Regístrate
+        </a>
+        <a
+            onClick={() => router.push("/login/forgot-password")}
+            className="link"
+        >
+            ¿Olvidaste tu contraseña?
+        </a>
     </div>
+</div>
   );
 }

@@ -1,75 +1,150 @@
-"use client"
+"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { db } from "../firebase"; // Asegúrate de que la ruta sea correcta
+import { collection, addDoc } from "firebase/firestore";
+
+import '../styles/NewChorePage.css'
 
 export default function NewChore() {
   const router = useRouter();
+
+  // Estado inicial del formulario
   const [formData, setFormData] = useState({
-    titulo: "",
-    descripcion: "",
-    prioridad: "",
+    nombre: "",
+    dias: {
+      lunes: false,
+      martes: false,
+      miercoles: false,
+      jueves: false,
+      viernes: false,
+      sabado: false,
+      domingo: false,
+    },
     fecha_inicio: "",
+    hora_inicio: "",
     fecha_fin: "",
+    hora_fin: "",
+    prioridad: "",
+    notificacion: "",
   });
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const { name, value, type, checked } = e.target;
+
+    // Si el campo es un checkbox (días de la semana), actualizamos los días
+    if (type === "checkbox") {
+      setFormData((prevData) => ({
+        ...prevData,
+        dias: { ...prevData.dias, [name]: checked },
+      }));
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Realizar la petición POST para ingresar la tarea a la base de datos
-    const res = await fetch("/api/chore", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    });
 
-    if (res.ok) {
+    // Si no se especifican días, se marcan todos como true
+    const updatedDias = Object.keys(formData.dias).reduce((acc, dia) => {
+      acc[dia] = formData.dias[dia] || true; // Si no se especifica un día, se marca como true
+      return acc;
+    }, {});
+
+    const updatedFormData = { 
+      ...formData, 
+      dias: updatedDias 
+    };
+
+    // Validación simple para asegurarse de que todos los campos requeridos estén llenos
+    if (
+      !updatedFormData.nombre ||
+      !updatedFormData.prioridad ||
+      !updatedFormData.notificacion
+    ) {
+      alert("Por favor, complete todos los campos obligatorios.");
+      return;
+    }
+
+    try {
+      // Añadir la tarea a la colección "tareas" en Firestore
+      await addDoc(collection(db, "tareas"), updatedFormData);
       alert("Tarea ingresada con éxito");
-      router.push("/"); // Redirigir a la página principal o a donde prefieras
-    } else {
+      router.push("/"); // Redirige a la página principal después de guardar
+    } catch (error) {
+      console.error("Error al ingresar la tarea:", error);
       alert("Hubo un error al ingresar la tarea");
     }
   };
 
+  const handleBack = () => {
+    router.back(); // Volver a la página anterior
+  };
+
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50 text-black">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-        <h2 className="text-2xl font-bold mb-6 text-center">Ingresar Nueva Tarea</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="container">
+      <div className="card">
+        {/* Botón de volver */}
+        <button onClick={handleBack} className="back-button">
+          &#8592; {/* Flecha hacia la izquierda */}
+        </button>
+
+        <h2 className="title">Ingresar Nueva Tarea</h2>
+        <form onSubmit={handleSubmit} className="form">
           <div>
-            <label className="block font-medium">Título</label>
+            <label className="label">Nombre</label>
             <input
               type="text"
-              name="titulo"
-              value={formData.titulo}
+              name="nombre"
+              value={formData.nombre}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="input"
               required
             />
           </div>
           <div>
-            <label className="block font-medium">Descripción</label>
-            <textarea
-              name="descripcion"
-              value={formData.descripcion}
+            <label className="label">Días de la Tarea</label>
+            {["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"].map((dia) => (
+              <div key={dia} className="checkbox-container">
+                <input
+                  type="checkbox"
+                  name={dia}
+                  checked={formData.dias[dia]}
+                  onChange={handleChange}
+                  className="checkbox"
+                />
+                <label>{dia.charAt(0).toUpperCase() + dia.slice(1)}</label>
+              </div>
+            ))}
+          </div>
+          <div>
+            <label className="label">Fecha de Inicio</label>
+            <input
+              type="date"
+              name="fecha_inicio"
+              value={formData.fecha_inicio}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              className="input"
             />
           </div>
           <div>
-            <label className="block font-medium">Prioridad</label>
+            <label className="label">Hora de Inicio</label>
+            <input
+              type="time"
+              name="hora_inicio"
+              value={formData.hora_inicio}
+              onChange={handleChange}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">Prioridad</label>
             <select
               name="prioridad"
               value={formData.prioridad}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="select"
               required
             >
               <option value="">Seleccione una prioridad</option>
@@ -78,32 +153,7 @@ export default function NewChore() {
               <option value="Baja">Baja</option>
             </select>
           </div>
-          <div>
-            <label className="block font-medium">Fecha de Inicio</label>
-            <input
-              type="datetime-local"
-              name="fecha_inicio"
-              value={formData.fecha_inicio}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block font-medium">Fecha de Fin</label>
-            <input
-              type="datetime-local"
-              name="fecha_fin"
-              value={formData.fecha_fin}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-black text-white py-2 rounded-md hover:bg-gray-900 transition duration-300"
-          >
+          <button type="submit" className="button">
             Guardar Tarea
           </button>
         </form>

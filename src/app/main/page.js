@@ -1,79 +1,147 @@
-"use client"
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+"use client";
+import { useState, useEffect } from "react";
+import { db } from "../firebase"; // Asegúrate de que la ruta sea correcta
+import { collection, getDocs } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import withAuth from "../hoc/withAuth";
 
+import '../styles/MainPage.css';
 
-export default function mainPage() {
+function MainPage() {
+  const [tasks, setTasks] = useState([]);
+  const [currentDay, setCurrentDay] = useState(new Date().getDay()); // Día actual
+  const [selectedDay, setSelectedDay] = useState(new Date().getDay()); // Día seleccionado
+  const [notifications, setNotifications] = useState({}); // Almacenar el estado de la campana de cada tarea
+  const daysOfWeek = [
+    "Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"
+  ];
+  
   const router = useRouter();
 
-  const [tasks, setTasks] = useState([
-    { task: 'Gym', time: '9 - 11 am', muted: true },
-    { task: 'Clases', time: '11:30 am - 4 pm', muted: false },
-    { task: 'Reunion', time: '5 - 6 pm', muted: false },
-    { task: 'Cita', time: '7 - 8 pm', muted: false },
-    { task: 'Partido', time: '11 - 12 pm', muted: false },
-  ]);
+  useEffect(() => {
+    // Función para obtener las tareas de la base de datos
+    const fetchTasks = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "tareas"));
+        const tasksData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setTasks(tasksData);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+      }
+    };
+    fetchTasks();
+  }, []);
 
-  const handleNewTask = () => {
-    router.push('/new-chore');
+  // Filtrar las tareas por el día seleccionado
+  const filteredTasks = tasks.filter(task => 
+    task.dias && task.dias[daysOfWeek[selectedDay].toLowerCase()] === true
+  );
+
+  // Ordenar las tareas por hora de inicio
+  const sortedTasks = filteredTasks.sort((a, b) => {
+    const timeA = a.hora_inicio ? new Date(`1970-01-01T${a.hora_inicio}:00`) : null;
+    const timeB = b.hora_inicio ? new Date(`1970-01-01T${b.hora_inicio}:00`) : null;
+
+    if (!timeA) return 1; // Si `timeA` no está definido, lo mueve al final
+    if (!timeB) return -1; // Si `timeB` no está definido, lo mueve al final
+    return timeA - timeB;
+  });
+
+  // Funciones para cambiar entre días
+  const handlePrevDay = () => {
+    setSelectedDay(prevDay => (prevDay === 0 ? 6 : prevDay - 1));
   };
 
-  return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50 text-black">
-      <div className="w-full max-w-md p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={() => alert('Día anterior')} className="text-2xl">&#8592;</button>
-          <h1 className="text-3xl font-bold text-center">HOY</h1>
-          <button onClick={() => alert('Día siguiente')} className="text-2xl">&#8594;</button>
-        </div>
+  const handleNextDay = () => {
+    setSelectedDay(prevDay => (prevDay === 6 ? 0 : prevDay + 1));
+  };
 
-        {/* Calendar */}
-        <table className="w-full bg-white rounded-lg shadow-md text-center">
+  // Función para manejar el cambio de estado de la campana
+  const handleNotificationToggle = (taskId) => {
+    setNotifications((prevState) => ({
+      ...prevState,
+      [taskId]: !prevState[taskId],
+    }));
+  };
+
+  // Verificar la hora y enviar la notificación si la campana está activada
+  const checkTaskTime = () => {
+    const now = new Date();
+    sortedTasks.forEach(task => {
+      if (task.hora_inicio) {
+        const taskTime = new Date(`1970-01-01T${task.hora_inicio}:00`);
+        if (now.getHours() === taskTime.getHours() && now.getMinutes() === taskTime.getMinutes()) {
+          if (notifications[task.id]) {
+            new Notification(`¡Es hora de ${task.nombre}!`, {
+              body: `Es hora de empezar la tarea: ${task.nombre}`,
+            });
+          }
+        }
+      }
+    });
+  };
+
+  useEffect(() => {
+    // Verificar la hora cada minuto
+    const interval = setInterval(checkTaskTime, 60000);
+    return () => clearInterval(interval);
+  }, [notifications, sortedTasks]);
+
+  return (
+    <div className="container">
+      {/* Encabezado con el día */}
+      <div className="header">
+        <button onClick={handlePrevDay} className="button">⬅️</button>
+        <span className="day">{daysOfWeek[selectedDay]}</span>
+        <button onClick={handleNextDay} className="button">➡️</button>
+      </div>
+
+      {/* Tabla de Tareas */}
+      <div className="table-container">
+        <table className="table">
           <thead>
             <tr>
-              <th className="px-4 py-2 border-b font-medium">Tarea</th>
-              <th className="px-4 py-2 border-b font-medium">Hora</th>
-              <th className="px-4 py-2 border-b font-medium">Silenciar</th>
+              <th>Nombre de la Tarea</th>
+              <th>Hora</th>
+              <th>Prioridad</th>
+              <th>Notificación</th> {/* Nueva columna para la campana */}
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task, index) => (
-              <tr key={index}>
-                <td className="px-4 py-2 border-b">{task.task}</td>
-                <td className="px-4 py-2 border-b">{task.time}</td>
-                <td className="px-4 py-2 border-b">
-                  <button
-                    onClick={() => {
-                      let updatedTasks = [...tasks];
-                      updatedTasks[index].muted = !updatedTasks[index].muted;
-                      setTasks(updatedTasks);
-                    }}
-                  >
-                    {task.muted ? '🔕' : '🔔'}
-                  </button>
-                </td>
+            {sortedTasks.length > 0 ? (
+              sortedTasks.map((task) => (
+                <tr key={task.id}>
+                  <td>{task.nombre}</td>
+                  <td>{task.hora_inicio || "Indefinida"}</td>
+                  <td>{task.prioridad}</td>
+                  <td>
+                    <button
+                      onClick={() => handleNotificationToggle(task.id)}
+                      className={`bell-button ${notifications[task.id] ? 'active' : ''}`}
+                    >
+                      🔔
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4" className="empty">No hay tareas para este día</td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
-
-        {/* Action Buttons */}
-        <div className="flex justify-between mt-6">
-          <button
-            onClick={handleNewTask}
-            className="w-full bg-black text-white py-2 mr-2 rounded-md hover:bg-gray-900 transition duration-300"
-          >
-            Ingresar Tarea
-          </button>
-          <button
-            onClick={() => alert('Día terminado')}
-            className="w-full bg-red-600 text-white py-2 ml-2 rounded-md hover:bg-red-700 transition duration-300"
-          >
-            Terminar Día
-          </button>
-        </div>
       </div>
+
+      {/* Botón para agregar tarea */}
+      <button onClick={() => router.push("/new-chore")} className="add-task">
+        Ingresar Nueva Tarea
+      </button>
     </div>
   );
 }
+
+export default withAuth(MainPage);

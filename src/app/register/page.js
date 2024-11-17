@@ -1,120 +1,89 @@
 "use client"
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { auth } from '../firebase'; // Asegúrate de que esta ruta sea correcta
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function RegisterPage() {
-  const router = useRouter(); // Hook de enrutamiento
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState(''); // Estado para la confirmación de contraseña
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const router = useRouter();
 
-  const [formData, setFormData] = useState({
-    nombre: "",
-    email: "",
-    contraseña: "",
-    confirmarContraseña: "",
-  });
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    // Aquí deberías realizar validaciones y enviar los datos al backend (API)
-    console.log(formData);
-  };
+    setError(''); // Resetea el mensaje de error
 
-  const handleLoginRedirect = () => {
-    router.push("/login"); // Redirige a la página de login
+    // Verifica si la contraseña y la confirmación coinciden
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    try {
+      // Llama a Firebase para registrar al usuario
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log("Usuario registrado:", userCredential.user);
+
+      // Si el registro es exitoso, muestra un mensaje de éxito
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/login'); // Redirige a la página de inicio de sesión después de unos segundos
+      }, 2000);
+    } catch (error) {
+      console.error("Error al registrar usuario:", error.message);
+      setError(error.message); // Muestra el mensaje de error
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-        {/* Imagen del logo */}
-        <div className="flex justify-center mb-4">
-          <div className="h-24 w-24 bg-gray-200 rounded-lg flex items-center justify-center">
-            <span className="text-gray-500">Logo</span>
-          </div>
-        </div>
-
-        {/* Formulario */}
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          {/* Nombre */}
-          <div>
-            <input
-              type="text"
-              name="nombre"
-              placeholder="Nombre"
-              value={formData.nombre}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Contraseña */}
-          <div>
-            <input
-              type="password"
-              name="contraseña"
-              placeholder="Contraseña"
-              value={formData.contraseña}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Confirmar Contraseña */}
-          <div>
-            <input
-              type="password"
-              name="confirmarContraseña"
-              placeholder="Confirmar Contraseña"
-              value={formData.confirmarContraseña}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Botón de Registrarse */}
-          <div>
-            <button
-              type="submit"
-              className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition duration-300"
-            >
-              Registrarse
-            </button>
-          </div>
-        </form>
-
-        {/* Botón de Volver */}
-        <div className="mt-4">
-          <button
-            type="button"
-            className="w-full bg-black text-white py-2 rounded-md hover:bg-gray-900 transition duration-300"
-            onClick={handleLoginRedirect}
-          >
-            Volver al Login
-          </button>
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+      <h1 className="text-2xl font-bold mb-4">Registrarse</h1>
+      <form onSubmit={handleRegister} className="w-full max-w-xs">
+        <input
+          type="email"
+          placeholder="Correo Electrónico"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="w-full p-2 mb-4 border border-gray-300 rounded"
+        />
+        <input
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          className="w-full p-2 mb-4 border border-gray-300 rounded"
+          autoComplete="new-password"
+        />
+        <input
+          type="password"
+          placeholder="Confirmar Contraseña"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+          className="w-full p-2 mb-4 border border-gray-300 rounded"
+          autoComplete="new-password"
+        />
+        <button
+          type="submit"
+          className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition duration-300"
+        >
+          Registrarse
+        </button>
+        {success && <p className="text-green-600 mt-4">Registro exitoso, redirigiendo...</p>}
+        {error && <p className="text-red-600 mt-4">Error: {error}</p>}
+      </form>
+      <button
+        onClick={() => router.push('/login')}
+        className="mt-4 text-blue-600 hover:underline"
+      >
+        Volver al login
+      </button>
     </div>
   );
 }
