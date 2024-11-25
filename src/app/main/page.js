@@ -1,11 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "../firebase"; // Asegúrate de que la ruta sea correcta
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // Para obtener el usuario logueado
 import { useRouter } from "next/navigation";
 import withAuth from "../hoc/withAuth";
 
-import '../styles/MainPage.css';
+import "../styles/MainPage.css";
 
 function MainPage() {
   const [tasks, setTasks] = useState([]);
@@ -13,16 +14,32 @@ function MainPage() {
   const [selectedDay, setSelectedDay] = useState(new Date().getDay()); // Día seleccionado
   const [notifications, setNotifications] = useState({}); // Almacenar el estado de la campana de cada tarea
   const daysOfWeek = [
-    "Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"
+    "Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado",
   ];
-  
+
   const router = useRouter();
 
   useEffect(() => {
-    // Función para obtener las tareas de la base de datos
+    // Función para obtener las tareas del usuario logueado
     const fetchTasks = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "tareas"));
+        // Obtener el ID del usuario logueado
+        const auth = getAuth();
+        const user = auth.currentUser;
+
+        if (!user) {
+          console.error("No se pudo identificar al usuario.");
+          return;
+        }
+
+        const userId = user.uid;
+
+        // Consultar las tareas de Firestore para este usuario
+        const tasksQuery = query(
+          collection(db, "tareas"),
+          where("userId", "==", userId) // Filtrar por el ID del usuario
+        );
+        const querySnapshot = await getDocs(tasksQuery);
         const tasksData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -36,8 +53,8 @@ function MainPage() {
   }, []);
 
   // Filtrar las tareas por el día seleccionado
-  const filteredTasks = tasks.filter(task => 
-    task.dias && task.dias[daysOfWeek[selectedDay].toLowerCase()] === true
+  const filteredTasks = tasks.filter(
+    (task) => task.dias && task.dias[daysOfWeek[selectedDay].toLowerCase()] === true
   );
 
   // Ordenar las tareas por hora de inicio
@@ -52,11 +69,11 @@ function MainPage() {
 
   // Funciones para cambiar entre días
   const handlePrevDay = () => {
-    setSelectedDay(prevDay => (prevDay === 0 ? 6 : prevDay - 1));
+    setSelectedDay((prevDay) => (prevDay === 0 ? 6 : prevDay - 1));
   };
 
   const handleNextDay = () => {
-    setSelectedDay(prevDay => (prevDay === 6 ? 0 : prevDay + 1));
+    setSelectedDay((prevDay) => (prevDay === 6 ? 0 : prevDay + 1));
   };
 
   // Función para manejar el cambio de estado de la campana
@@ -70,10 +87,13 @@ function MainPage() {
   // Verificar la hora y enviar la notificación si la campana está activada
   const checkTaskTime = () => {
     const now = new Date();
-    sortedTasks.forEach(task => {
+    sortedTasks.forEach((task) => {
       if (task.hora_inicio) {
         const taskTime = new Date(`1970-01-01T${task.hora_inicio}:00`);
-        if (now.getHours() === taskTime.getHours() && now.getMinutes() === taskTime.getMinutes()) {
+        if (
+          now.getHours() === taskTime.getHours() &&
+          now.getMinutes() === taskTime.getMinutes()
+        ) {
           if (notifications[task.id]) {
             new Notification(`¡Es hora de ${task.nombre}!`, {
               body: `Es hora de empezar la tarea: ${task.nombre}`,
@@ -120,7 +140,7 @@ function MainPage() {
                   <td>
                     <button
                       onClick={() => handleNotificationToggle(task.id)}
-                      className={`bell-button ${notifications[task.id] ? 'active' : ''}`}
+                      className={`bell-button ${notifications[task.id] ? "active" : ""}`}
                     >
                       🔔
                     </button>
@@ -139,6 +159,14 @@ function MainPage() {
       {/* Botón para agregar tarea */}
       <button onClick={() => router.push("/new-chore")} className="add-task">
         Ingresar Nueva Tarea
+      </button>
+      <button onClick={() => router.push("/main/delete")} className="delete-task">
+        Borrar Tarea
+      </button>
+
+      {/* Botón para la encuesta */}
+      <button onClick={() => router.push("/survey")} className="survey-button">
+        Encuesta
       </button>
     </div>
   );

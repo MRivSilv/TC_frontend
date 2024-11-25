@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../firebase"; // Asegúrate de que la ruta sea correcta
 import { collection, addDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 import '../styles/NewChorePage.css'
 
@@ -46,32 +47,33 @@ export default function NewChore() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Si no se especifican días, se marcan todos como true
-    const updatedDias = Object.keys(formData.dias).reduce((acc, dia) => {
-      acc[dia] = formData.dias[dia] || true; // Si no se especifica un día, se marca como true
-      return acc;
-    }, {});
-
-    const updatedFormData = { 
-      ...formData, 
-      dias: updatedDias 
-    };
-
     // Validación simple para asegurarse de que todos los campos requeridos estén llenos
     if (
-      !updatedFormData.nombre ||
-      !updatedFormData.prioridad ||
-      !updatedFormData.notificacion
+      !formData.nombre ||
+      !formData.prioridad 
     ) {
       alert("Por favor, complete todos los campos obligatorios.");
       return;
     }
 
     try {
-      // Añadir la tarea a la colección "tareas" en Firestore
-      await addDoc(collection(db, "tareas"), updatedFormData);
+      // Obtener el ID del usuario autenticado
+      const auth = getAuth();
+      const userId = auth.currentUser?.uid;
+
+      if (!userId) {
+        alert("No se pudo identificar al usuario. Por favor, inicie sesión.");
+        return;
+      }
+
+      // Añadir la tarea a la colección "tareas" en Firestore junto con el ID del usuario
+      await addDoc(collection(db, "tareas"), {
+        ...formData, // Los días seleccionados ya están reflejados aquí
+        userId, // Incluir el ID del usuario
+      });
+
       alert("Tarea ingresada con éxito");
-      router.push("/"); // Redirige a la página principal después de guardar
+      router.push("/main"); // Redirige a la página principal después de guardar
     } catch (error) {
       console.error("Error al ingresar la tarea:", error);
       alert("Hubo un error al ingresar la tarea");

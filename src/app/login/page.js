@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/'); // Redirige a la página principal o a donde desees después del login
+      router.push('/main'); // Redirige a la página principal o a donde desees después del login
     } catch (error) {
       console.error("Error al iniciar sesión:", error.message);
       setError(error.message);
